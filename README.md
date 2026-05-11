@@ -1,94 +1,125 @@
 # PodShare
 
-PodShare is a subscription-sharing platform for students. This workspace follows the technical spec in `/Users/nashy/Downloads/podshare-technical-spec.md` and is organized as a small monorepo:
+PodShare is a full-stack subscription-sharing platform for students. It helps users track recurring subscriptions, form shared subscription groups called pods, invite friends, discover public shares, and split payments through a Stripe-ready billing flow.
 
-- `apps/frontend`: React 18 + Vite + Tailwind CSS client
-- `apps/backend`: Express + Prisma + PostgreSQL API
-- `packages/shared`: shared constants and types
+The product is built as a TypeScript monorepo with a React frontend, Express API, Prisma data model, Supabase authentication, and Stripe payment scaffolding.
 
-## Status
+## Current Status
 
-This repo now includes a working full-stack product scaffold with:
+PodShare is in active MVP development. The repository includes the core application structure and product flows, with live Supabase/Stripe integration still being wired and tested.
 
-1. monorepo setup and shared package structure
-2. Prisma schema for users, subscriptions, pods, friendships, invites, tracked subscriptions, payments, and billing records
-3. Supabase magic-link auth flow and protected app routes
-4. frontend pages for dashboard, subscriptions, pods, invites, friends, profile, and settings
-5. private/public pod flows, invite inbox, member management, and per-pod billing visibility
-6. payment-method management plus Stripe-ready setup-intent and webhook scaffolding
+Implemented so far:
+
+- Stanford-only magic-link authentication flow
+- Protected frontend routes and profile management
+- Subscription tracking with monthly spend and savings summaries
+- Public and private pod creation flows
+- Pod member management, invite flows, and join requests
+- Friend requests and friend network primitives
+- Payment method setup flow using Stripe SetupIntents
+- Stripe webhook and recurring billing scaffolding
+- Prisma schema covering users, pods, memberships, subscriptions, payments, invites, and billing records
+
+## Tech Stack
+
+- **Frontend:** React 18, Vite, TypeScript, Tailwind CSS, React Router
+- **Backend:** Node.js, Express, TypeScript, Prisma
+- **Database:** PostgreSQL through Supabase
+- **Auth:** Supabase Auth
+- **Payments:** Stripe
+- **Package management:** npm workspaces
+
+## Repository Structure
+
+```text
+apps/
+  backend/      Express API, Prisma schema, billing/auth routes
+  frontend/     React client, protected pages, dashboard and pod UI
+packages/
+  shared/       Shared constants and TypeScript types
+scripts/        Local validation utilities
+```
 
 ## Getting Started
 
-1. Install dependencies from the repo root:
-   `npm install`
-2. Copy env templates:
-   - `apps/backend/.env.example` to `apps/backend/.env`
-   - `apps/frontend/.env.example` to `apps/frontend/.env`
-3. Generate the Prisma client:
-   `npm run prisma:generate`
-4. Run the backend:
-   `npm run dev:backend`
-5. Run the frontend:
-   `npm run dev:frontend`
+Install dependencies:
+
+```bash
+npm install
+```
+
+Create local environment files from the templates:
+
+```bash
+cp apps/backend/.env.example apps/backend/.env
+cp apps/frontend/.env.example apps/frontend/.env
+```
+
+Generate the Prisma client:
+
+```bash
+npm run prisma:generate
+```
+
+Run the backend:
+
+```bash
+npm run dev:backend
+```
+
+Run the frontend:
+
+```bash
+npm run dev:frontend
+```
+
+The frontend runs at `http://localhost:5173` and the backend runs at `http://localhost:4000` by default.
 
 ## Useful Commands
 
-- Install all dependencies:
-  `npm install`
-- Generate Prisma client:
-  `npm run prisma:generate`
-- Run backend typecheck:
-  `npm run lint --workspace backend`
-- Run frontend typecheck:
-  `npm run lint --workspace frontend`
-- Build backend:
-  `npm run build --workspace backend`
-- Build frontend:
-  `npm run build --workspace frontend`
+```bash
+npm run validate-env
+npm run lint --workspace frontend
+npm run lint --workspace backend
+npm run build --workspace frontend
+npm run build --workspace backend
+```
 
 ## Environment
 
-Backend env template:
-- [apps/backend/.env.example](/Users/nashy/PodShare/apps/backend/.env.example)
+Environment templates are committed, but real secrets are intentionally ignored.
 
-Frontend env template:
-- [apps/frontend/.env.example](/Users/nashy/PodShare/apps/frontend/.env.example)
+- Backend template: [apps/backend/.env.example](apps/backend/.env.example)
+- Frontend template: [apps/frontend/.env.example](apps/frontend/.env.example)
 
-Key services you need for a real deployment:
-- Supabase project
-- PostgreSQL database URL
-- Stripe account with webhook endpoint
-- SendGrid sender
+Services needed for live staging:
 
-## Product Surface Implemented
+- Supabase project and PostgreSQL connection string
+- Stripe test-mode keys and webhook endpoint
+- SendGrid API key or another email provider
+- Frontend and backend hosting targets
 
-Current code supports:
+## Product Areas
 
-- Stanford-only magic-link auth
-- profile editing
-- friend requests and friend network
-- tracked subscriptions and savings view
-- public pod feed
-- private pod invites
-- pod owner administration
-- payment-method management
-- per-pod billing summaries
-- Stripe setup-intent code path
-- webhook and recurring-billing scaffolding
+- **Dashboard:** monthly spend, savings, owned pods, joined pods, and next actions
+- **Subscriptions:** manual tracking for personal and shared recurring expenses
+- **Pods:** public discovery, private sharing, owner controls, member states, and credentials storage hooks
+- **Friends and invites:** friend requests, direct pod invites, and invite inbox
+- **Payments:** payment method setup, payment records, billing status, and webhook handlers
 
-## Operational Docs
+## Roadmap
 
-- Deployment and environment setup:
-  [DEPLOYMENT.md](/Users/nashy/PodShare/DEPLOYMENT.md)
-- Local/staging validation checklist:
-  [TESTING_RUNBOOK.md](/Users/nashy/PodShare/TESTING_RUNBOOK.md)
-- Product definition:
-  [PRODUCT_REQUIREMENTS.md](/Users/nashy/PodShare/PRODUCT_REQUIREMENTS.md)
+- Connect to a live Supabase Postgres instance and run migrations
+- Validate magic-link authentication end to end
+- Configure Stripe test keys and webhook forwarding
+- Test SetupIntent and off-session payment flows
+- Add staging deployment configuration
+- Add automated test coverage for high-risk billing and visibility rules
+- Complete production hardening for credentials, access revocation, compliance, and monitoring
 
-## Main Remaining Work
+## Docs
 
-- connect to a real Supabase Postgres instance and run Prisma migrations
-- configure real Stripe publishable/secret keys and webhook endpoint
-- test live SetupIntent and off-session payment flows
-- add deployment config for staging/production hosting
-- complete compliance, policy, and production hardening
+- [Product requirements](PRODUCT_REQUIREMENTS.md)
+- [Deployment notes](DEPLOYMENT.md)
+- [Live setup checklist](LIVE_SETUP_CHECKLIST.md)
+- [Testing runbook](TESTING_RUNBOOK.md)
