@@ -1,0 +1,17 @@
+node_modules/
+dist/
+build/
+coverage/
+
+.DS_Store
+*.log
+*.tsbuildinfo
+
+.env
+.env.*
+!.env.example
+!.env.local.example
+
+apps/backend/generated/
+apps/backend/prisma/dev.db
+apps/backend/prisma/dev.db-journal

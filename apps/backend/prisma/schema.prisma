@@ -1,0 +1,223 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                     String                 @id @default(uuid())
+  email                  String                 @unique
+  name                   String
+  avatarUrl              String?
+  major                  String?
+  year                   Int?
+  isVerified             Boolean                @default(false)
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  subscriptions          Subscription[]
+  trackedSubscriptions   TrackedSubscription[]
+  ownedPods              Pod[]                  @relation("PodOwner")
+  memberships            PodMember[]
+  payments               Payment[]
+  sentFriendRequests     Friendship[]           @relation("FriendRequester")
+  receivedFriendRequests Friendship[]           @relation("FriendAddressee")
+  sentPodInvites         PodInvite[]            @relation("PodInviteSender")
+  receivedPodInvites     PodInvite[]            @relation("PodInviteRecipient")
+  paymentMethods         PaymentMethodReference[]
+}
+
+model Subscription {
+  id                         String                @id @default(uuid())
+  userId                     String
+  name                       String
+  category                   String
+  monthlyCost                Decimal               @db.Decimal(10, 2)
+  billingDate                Int
+  isActive                   Boolean               @default(true)
+  createdAt                  DateTime              @default(now())
+  user                       User                  @relation(fields: [userId], references: [id])
+  pods                       Pod[]
+  linkedTrackedSubscriptions TrackedSubscription[]
+}
+
+model Pod {
+  id                    String                 @id @default(uuid())
+  name                  String
+  subscriptionId        String
+  ownerId               String
+  maxMembers            Int
+  costPerMember         Decimal                @db.Decimal(10, 2)
+  visibility            PodVisibility          @default(PRIVATE)
+  status                PodStatus              @default(OPEN)
+  credentials           String?
+  createdAt             DateTime               @default(now())
+  subscription          Subscription           @relation(fields: [subscriptionId], references: [id])
+  owner                 User                   @relation("PodOwner", fields: [ownerId], references: [id])
+  members               PodMember[]
+  payments              Payment[]
+  invites               PodInvite[]
+  platformBillingRecords PlatformBillingRecord[]
+}
+
+model PodMember {
+  id       String       @id @default(uuid())
+  podId    String
+  userId   String
+  status   MemberStatus @default(PENDING)
+  joinedAt DateTime?
+  leftAt   DateTime?
+  pod      Pod          @relation(fields: [podId], references: [id], onDelete: Cascade)
+  user     User         @relation(fields: [userId], references: [id])
+
+  @@unique([podId, userId])
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  podId           String
+  userId          String
+  amount          Decimal       @db.Decimal(10, 2)
+  status          PaymentStatus @default(PENDING)
+  stripePaymentId String?
+  month           Int
+  year            Int
+  paidAt          DateTime?
+  createdAt       DateTime      @default(now())
+  pod             Pod           @relation(fields: [podId], references: [id])
+  user            User          @relation(fields: [userId], references: [id])
+}
+
+model Friendship {
+  id          String           @id @default(uuid())
+  requesterId String
+  addresseeId String
+  status      FriendshipStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  respondedAt DateTime?
+  requester   User             @relation("FriendRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee   User             @relation("FriendAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+}
+
+model PodInvite {
+  id          String       @id @default(uuid())
+  podId        String
+  senderId     String
+  recipientId  String
+  status       InviteStatus @default(PENDING)
+  message      String?
+  createdAt    DateTime     @default(now())
+  respondedAt  DateTime?
+  pod          Pod          @relation(fields: [podId], references: [id], onDelete: Cascade)
+  sender       User         @relation("PodInviteSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient    User         @relation("PodInviteRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@unique([podId, recipientId])
+}
+
+model TrackedSubscription {
+  id                 String         @id @default(uuid())
+  userId             String
+  name               String
+  category           String
+  provider           String?
+  monthlyCost        Decimal        @db.Decimal(10, 2)
+  billingDate        Int?
+  source             TrackingSource @default(MANUAL)
+  isShared           Boolean        @default(false)
+  estimatedRetailCost Decimal?      @db.Decimal(10, 2)
+  linkedSubscriptionId String?
+  notes              String?
+  isActive           Boolean        @default(true)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  linkedSubscription Subscription?  @relation(fields: [linkedSubscriptionId], references: [id], onDelete: SetNull)
+}
+
+model PaymentMethodReference {
+  id                    String   @id @default(uuid())
+  userId                String
+  stripeCustomerId      String?
+  stripePaymentMethodId String   @unique
+  brand                 String?
+  last4                 String?
+  expMonth              Int?
+  expYear               Int?
+  isDefault             Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PlatformBillingRecord {
+  id              String                @id @default(uuid())
+  podId            String
+  amount           Decimal               @db.Decimal(10, 2)
+  status           PlatformBillingStatus @default(PENDING)
+  serviceUsername  String?
+  month            Int
+  year             Int
+  failureReason    String?
+  paidAt           DateTime?
+  createdAt        DateTime              @default(now())
+  pod              Pod                   @relation(fields: [podId], references: [id], onDelete: Cascade)
+}
+
+enum PodStatus {
+  OPEN
+  FULL
+  ACTIVE
+  CANCELLED
+}
+
+enum MemberStatus {
+  PENDING
+  ACTIVE
+  REMOVED
+  LEFT
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PodVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  BLOCKED
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  REVOKED
+}
+
+enum TrackingSource {
+  MANUAL
+  LINKED
+  PODSHARE
+}
+
+enum PlatformBillingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}

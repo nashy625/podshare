@@ -1,0 +1,19 @@
+{
+  "name": "podshare",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/frontend",
+    "apps/backend",
+    "packages/shared"
+  ],
+  "scripts": {
+    "dev:frontend": "npm run dev --workspace frontend",
+    "dev:backend": "npm run dev --workspace backend",
+    "build": "npm run build --workspace frontend && npm run build --workspace backend",
+    "lint": "npm run lint --workspace frontend && npm run lint --workspace backend",
+    "validate-env": "node scripts/validate-env.mjs",
+    "prisma:generate": "npm run prisma:generate --workspace backend",
+    "prisma:migrate": "npm run prisma:migrate --workspace backend"
+  }
+}
