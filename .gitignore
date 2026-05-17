@@ -15,3 +15,4 @@ coverage/
 apps/backend/generated/
 apps/backend/prisma/dev.db
 apps/backend/prisma/dev.db-journal
+.vercel

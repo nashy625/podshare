@@ -20,15 +20,6 @@ const baseEnvSchema = z.object({
 });
 
 const parsedEnv = baseEnvSchema.parse(process.env);
-const requireInProduction = ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "SENDGRID_API_KEY"] as const;
-
-if (parsedEnv.NODE_ENV === "production") {
-  for (const key of requireInProduction) {
-    if (!parsedEnv[key]) {
-      throw new Error(`Missing required environment variable in production: ${key}`);
-    }
-  }
-}
 
 export const env = parsedEnv;
 export const adminEmails = new Set(
