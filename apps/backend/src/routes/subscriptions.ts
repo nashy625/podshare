@@ -36,8 +36,11 @@ subscriptionsRouter.post("/", async (req: AuthenticatedRequest, res, next) => {
 
     const subscription = await prisma.subscription.create({
       data: {
-        ...input,
+        name: input.name,
+        category: input.category,
         monthlyCost: input.monthlyCost,
+        billingDate: input.billingDate,
+        isActive: input.isActive,
         user: {
           connect: { id: user.id },
         },
