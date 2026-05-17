@@ -12,6 +12,8 @@ import { NewPodPage } from "./pages/NewPodPage";
 import { PodDetailsPage } from "./pages/PodDetailsPage";
 import { FriendsPage } from "./pages/FriendsPage";
 import { InvitesPage } from "./pages/InvitesPage";
+import { NotificationsPage } from "./pages/NotificationsPage";
+import { OperationsPage } from "./pages/OperationsPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { SettingsPage } from "./pages/SettingsPage";
 
@@ -30,6 +32,8 @@ export function App() {
           <Route path="subscriptions/new" element={<NewSubscriptionPage />} />
           <Route path="friends" element={<FriendsPage />} />
           <Route path="invites" element={<InvitesPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="operations" element={<OperationsPage />} />
           <Route path="pods/new" element={<NewPodPage />} />
           <Route path="profile" element={<ProfilePage />} />
           <Route path="settings" element={<SettingsPage />} />

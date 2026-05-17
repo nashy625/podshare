@@ -65,6 +65,17 @@ export type PodBillingSummary = {
     paymentId: string | null;
     paidAt: string | null;
   } | null;
+  failedPayments: Array<{
+    memberId: string;
+    userId: string;
+    name: string;
+    email: string;
+    amountDue: number;
+    paymentStatus: "FAILED";
+    paymentId: string | null;
+    paidAt: string | null;
+  }>;
+  readyToPurchase: boolean;
   owner: {
     id: string;
     name: string;

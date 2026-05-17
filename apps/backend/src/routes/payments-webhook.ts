@@ -1,6 +1,7 @@
 import express from "express";
 import Stripe from "stripe";
 import { env, featureFlags } from "../config.js";
+import { refreshPodPurchaseStage } from "../lib/billing.js";
 import { prisma } from "../lib/prisma.js";
 import { stripe } from "../lib/stripe.js";
 
@@ -36,13 +37,17 @@ paymentsWebhookRouter.post("/stripe", express.raw({ type: "application/json" }),
         const intent = event.data.object as Stripe.PaymentIntent;
         const paymentId = intent.metadata?.paymentId;
         if (paymentId) {
-          await prisma.payment.update({
+          const payment = await prisma.payment.update({
             where: { id: paymentId },
             data: {
               status: "COMPLETED",
               stripePaymentId: intent.id,
               paidAt: new Date(),
             },
+          });
+          await refreshPodPurchaseStage(payment.podId, {
+            month: payment.month,
+            year: payment.year,
           });
         }
         break;
@@ -51,12 +56,16 @@ paymentsWebhookRouter.post("/stripe", express.raw({ type: "application/json" }),
         const intent = event.data.object as Stripe.PaymentIntent;
         const paymentId = intent.metadata?.paymentId;
         if (paymentId) {
-          await prisma.payment.update({
+          const payment = await prisma.payment.update({
             where: { id: paymentId },
             data: {
               status: "FAILED",
               stripePaymentId: intent.id,
             },
+          });
+          await refreshPodPurchaseStage(payment.podId, {
+            month: payment.month,
+            year: payment.year,
           });
         }
         break;

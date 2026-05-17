@@ -1,0 +1,8 @@
+CREATE TYPE "PodPurchaseStage" AS ENUM ('INVITING', 'COLLECTING', 'READY_TO_PURCHASE', 'PURCHASED', 'PAUSED');
+
+ALTER TABLE "Pod"
+ADD COLUMN "purchaseStage" "PodPurchaseStage" NOT NULL DEFAULT 'INVITING',
+ADD COLUMN "subscriptionTier" TEXT,
+ADD COLUMN "platformFeePercent" DECIMAL(5,2) NOT NULL DEFAULT 5.00,
+ADD COLUMN "serviceAccountEmail" TEXT,
+ADD COLUMN "serviceAccountLogin" TEXT;

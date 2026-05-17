@@ -6,6 +6,7 @@ import { errorHandler } from "./middleware/error-handler.js";
 import { authRouter } from "./routes/auth.js";
 import { friendsRouter } from "./routes/friends.js";
 import { healthRouter } from "./routes/health.js";
+import { notificationsRouter } from "./routes/notifications.js";
 import { paymentsRouter } from "./routes/payments.js";
 import { paymentsWebhookRouter } from "./routes/payments-webhook.js";
 import { podsRouter } from "./routes/pods.js";
@@ -30,6 +31,7 @@ app.get("/", (_req, res) => {
 app.use("/api/health", healthRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/friends", friendsRouter);
+app.use("/api/notifications", notificationsRouter);
 app.use("/api/subscriptions", subscriptionsRouter);
 app.use("/api/tracked-subscriptions", trackedSubscriptionsRouter);
 app.use("/api/pods", podsRouter);

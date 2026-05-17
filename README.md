@@ -6,7 +6,7 @@ The product is built as a TypeScript monorepo with a React frontend, Express API
 
 ## Current Status
 
-PodShare is in active MVP development. The repository includes the core application structure and product flows, with live Supabase/Stripe integration still being wired and tested.
+PodShare is in active MVP development. The repository includes the core application structure and product flows, with Supabase database migrations wired for local testing and Stripe integration still being tested.
 
 Implemented so far:
 
@@ -19,6 +19,7 @@ Implemented so far:
 - Payment method setup flow using Stripe SetupIntents
 - Stripe webhook and recurring billing scaffolding
 - Prisma schema covering users, pods, memberships, subscriptions, payments, invites, and billing records
+- Supabase migration set for the current application schema
 
 ## Tech Stack
 
@@ -73,7 +74,7 @@ Run the frontend:
 npm run dev:frontend
 ```
 
-The frontend runs at `http://localhost:5173` and the backend runs at `http://localhost:4000` by default.
+The frontend runs at `http://127.0.0.1:5173` and the backend runs at `http://localhost:4000` by default.
 
 ## Useful Commands
 
@@ -109,7 +110,6 @@ Services needed for live staging:
 
 ## Roadmap
 
-- Connect to a live Supabase Postgres instance and run migrations
 - Validate magic-link authentication end to end
 - Configure Stripe test keys and webhook forwarding
 - Test SetupIntent and off-session payment flows

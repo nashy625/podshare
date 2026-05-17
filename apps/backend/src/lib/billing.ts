@@ -1,4 +1,5 @@
 import { Prisma, type PaymentStatus } from "@prisma/client";
+import { createNotification } from "./notifications.js";
 import { prisma } from "./prisma.js";
 import { stripe } from "./stripe.js";
 
@@ -15,10 +16,18 @@ export function currentBillingCycle(): BillingCycle {
   };
 }
 
+function splitAmount(monthlyCost: Prisma.Decimal | number | string, activeMemberCount: number, platformFeePercent: Prisma.Decimal | number | string) {
+  const memberCount = Math.max(activeMemberCount, 1);
+  const base = Number(monthlyCost);
+  const feeMultiplier = 1 + Number(platformFeePercent) / 100;
+  return new Prisma.Decimal((base * feeMultiplier / memberCount).toFixed(2));
+}
+
 export async function ensurePodCyclePayments(podId: string, cycle: BillingCycle) {
   const pod = await prisma.pod.findUniqueOrThrow({
     where: { id: podId },
     include: {
+      subscription: true,
       members: {
         where: {
           status: "ACTIVE",
@@ -45,10 +54,17 @@ export async function ensurePodCyclePayments(podId: string, cycle: BillingCycle)
   });
 
   const created = [];
+  const amount = splitAmount(pod.subscription.monthlyCost, pod.members.length, pod.platformFeePercent);
 
   for (const member of pod.members) {
     const existing = existingPayments.find((payment) => payment.userId === member.userId);
     if (existing) {
+      if (existing.status === "PENDING" && !new Prisma.Decimal(existing.amount).equals(amount)) {
+        await prisma.payment.update({
+          where: { id: existing.id },
+          data: { amount },
+        });
+      }
       continue;
     }
 
@@ -56,7 +72,7 @@ export async function ensurePodCyclePayments(podId: string, cycle: BillingCycle)
       data: {
         podId,
         userId: member.userId,
-        amount: new Prisma.Decimal(pod.costPerMember),
+        amount,
         status: "PENDING",
         month: cycle.month,
         year: cycle.year,
@@ -151,6 +167,13 @@ export async function collectPendingPaymentsForPod(podId: string, cycle: Billing
         paymentId: payment.id,
         reason: "No default payment method available.",
       });
+      await createNotification({
+        userId: member.user.id,
+        type: "PAYMENT_FAILED",
+        title: "Payment method needed",
+        body: `Your payment for ${pod.name} could not be collected because no default payment method is available.`,
+        href: `/pods/${pod.id}`,
+      });
       continue;
     }
 
@@ -200,6 +223,14 @@ export async function collectPendingPaymentsForPod(podId: string, cycle: Billing
         },
       });
 
+      await createNotification({
+        userId: member.user.id,
+        type: "PAYMENT_FAILED",
+        title: "Payment failed",
+        body: `Your payment for ${pod.name} failed. Update your payment method to keep the pod active.`,
+        href: `/pods/${pod.id}`,
+      });
+
       results.push({
         userId: member.user.id,
         email: member.user.email,
@@ -228,5 +259,56 @@ export async function collectPendingPaymentsForPod(podId: string, cycle: Billing
     podId,
     cycle,
     results,
+  };
+}
+
+export async function refreshPodPurchaseStage(podId: string, cycle: BillingCycle = currentBillingCycle()) {
+  const pod = await prisma.pod.findUniqueOrThrow({
+    where: { id: podId },
+    include: {
+      members: {
+        where: { status: "ACTIVE" },
+      },
+      payments: {
+        where: {
+          month: cycle.month,
+          year: cycle.year,
+        },
+      },
+    },
+  });
+
+  const activeUserIds = new Set(pod.members.map((member) => member.userId));
+  const activePayments = pod.payments.filter((payment) => activeUserIds.has(payment.userId));
+  const hasRequiredPayments = pod.members.length > 0 && activePayments.length >= pod.members.length;
+  const allPaid = hasRequiredPayments && activePayments.every((payment) => payment.status === "COMPLETED");
+  const failedPayments = activePayments.filter((payment) => payment.status === "FAILED");
+
+  if (allPaid && pod.purchaseStage === "COLLECTING") {
+    const updatedPod = await prisma.pod.update({
+      where: { id: podId },
+      data: {
+        purchaseStage: "READY_TO_PURCHASE",
+      },
+    });
+    await createNotification({
+      userId: pod.ownerId,
+      type: "PAYMENTS_COLLECTED",
+      title: "Payments collected",
+      body: `${pod.name} is ready for purchase. Buy the subscription and mark it purchased.`,
+      href: "/operations",
+    });
+
+    return {
+      pod: updatedPod,
+      allPaid,
+      failedPayments,
+    };
+  }
+
+  return {
+    pod,
+    allPaid,
+    failedPayments,
   };
 }

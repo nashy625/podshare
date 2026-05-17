@@ -5,10 +5,13 @@ import { fetchFriendships, type Friendship } from "../lib/friends";
 import { fetchPodBillingSummary, payForPod, type PodBillingSummary } from "../lib/payments";
 import {
   approvePodMember,
+  addDevTestMember,
   fetchPodDetails,
   inviteToPod,
   joinPod,
+  markPodPurchased,
   removePodMember,
+  startPodSharing,
   type PodDetails,
 } from "../lib/pods";
 import { useAuth } from "../context/AuthContext";
@@ -19,6 +22,10 @@ export function PodDetailsPage() {
   const [pod, setPod] = useState<PodDetails | null>(null);
   const [billing, setBilling] = useState<PodBillingSummary | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [testMember, setTestMember] = useState({
+    name: "Test Member",
+    email: "test-member@stanford.edu",
+  });
   const [friends, setFriends] = useState<Friendship[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -121,6 +128,49 @@ export function PodDetailsPage() {
     }
   }
 
+  async function handleStartSharing() {
+    if (!id) {
+      return;
+    }
+
+    try {
+      await startPodSharing(id);
+      setMessage("Payment collection started for this pod.");
+      await load();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to start purchase sharing.");
+    }
+  }
+
+  async function handleMarkPurchased() {
+    if (!id) {
+      return;
+    }
+
+    try {
+      await markPodPurchased(id);
+      setMessage("Pod marked as purchased. Credentials are now visible to active members.");
+      await load();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to mark this pod as purchased.");
+    }
+  }
+
+  async function handleAddTestMember(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!id) {
+      return;
+    }
+
+    try {
+      await addDevTestMember(id, testMember);
+      setMessage("Development test member added with a saved payment method.");
+      await load();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to add test member.");
+    }
+  }
+
   const acceptedFriends = friends
     .filter((friendship) => friendship.status === "ACCEPTED")
     .map((friendship) => (friendship.requester.email === user?.email ? friendship.addressee : friendship.requester));
@@ -133,6 +183,11 @@ export function PodDetailsPage() {
     <section className="space-y-6">
       <h1 className="text-3xl font-semibold tracking-tight text-slate-950">Pod Details</h1>
       {message ? <div className="rounded-2xl bg-slate-100 px-4 py-3 text-sm text-slate-700">{message}</div> : null}
+      {billing && billing.failedPayments.length > 0 ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {billing.failedPayments.length} member payment failed this cycle. Keep the pod in collection until the failed payment is resolved.
+        </div>
+      ) : null}
       {loading ? (
         <div className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
           Loading pod...
@@ -149,25 +204,39 @@ export function PodDetailsPage() {
                 <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
                   {pod.subscription.category}
                 </span>
+                <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
+                  {pod.purchaseStage}
+                </span>
               </div>
               <p className="mt-2 text-slate-600">
-                Sharing {pod.subscription.name} with {pod.members.length} active member(s).
+                Sharing {pod.subscription.name} with {activeMembers.length} active member(s).
               </p>
 
               <div className="mt-6 grid gap-4 sm:grid-cols-3">
                 <div className="rounded-2xl bg-slate-50 p-4">
-                  <div className="text-xs uppercase tracking-wide text-slate-400">Split cost</div>
+                  <div className="text-xs uppercase tracking-wide text-slate-400">Current share</div>
                   <div className="mt-1 text-lg font-semibold text-slate-950">${Number(pod.costPerMember).toFixed(2)}</div>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-4">
-                  <div className="text-xs uppercase tracking-wide text-slate-400">Max members</div>
-                  <div className="mt-1 text-lg font-semibold text-slate-950">{pod.maxMembers}</div>
+                  <div className="text-xs uppercase tracking-wide text-slate-400">Tier</div>
+                  <div className="mt-1 text-lg font-semibold text-slate-950">{pod.subscriptionTier ?? "Standard"}</div>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-4">
                   <div className="text-xs uppercase tracking-wide text-slate-400">Host</div>
                   <div className="mt-1 text-lg font-semibold text-slate-950">{pod.owner.name}</div>
                 </div>
               </div>
+
+              {isOwner ? (
+                <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="text-sm font-medium text-slate-900">Service account</div>
+                  <div className="mt-2 text-sm text-slate-600">
+                    {pod.serviceAccountEmail || pod.serviceAccountLogin
+                      ? `${pod.serviceAccountEmail ?? "No email"}${pod.serviceAccountLogin ? ` · ${pod.serviceAccountLogin}` : ""}`
+                      : "No service account details saved yet."}
+                  </div>
+                </div>
+              ) : null}
 
               {pod.credentials ? (
                 <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
@@ -176,7 +245,7 @@ export function PodDetailsPage() {
                 </div>
               ) : (
                 <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-                  Credentials are only shown to active members.
+                  Credentials are shown to active members after PodShare marks the subscription as purchased.
                 </div>
               )}
 
@@ -201,6 +270,16 @@ export function PodDetailsPage() {
               <h3 className="text-lg font-medium text-slate-950">Actions</h3>
               <div className="mt-4 flex flex-wrap gap-3">
                 <Button onClick={handleJoin}>Join Pod</Button>
+                {isOwner && pod.purchaseStage === "INVITING" ? (
+                  <Button variant="secondary" onClick={handleStartSharing}>
+                    Start Purchase Sharing
+                  </Button>
+                ) : null}
+                {isOwner && pod.purchaseStage === "READY_TO_PURCHASE" ? (
+                  <Button variant="secondary" onClick={handleMarkPurchased}>
+                    Mark Purchased
+                  </Button>
+                ) : null}
                 {currentUserBilling && currentUserBilling.paymentStatus !== "COMPLETED" ? (
                   <Button variant="secondary" onClick={handlePay}>
                     Pay My Share
@@ -249,6 +328,26 @@ export function PodDetailsPage() {
               </form>
               {!isOwner ? (
                 <p className="mt-3 text-xs text-slate-500">Only the host can send pod invites and manage members.</p>
+              ) : null}
+
+              {isOwner && import.meta.env.DEV ? (
+                <form className="mt-6 space-y-3 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4" onSubmit={handleAddTestMember}>
+                  <div className="text-sm font-medium text-slate-900">Development test member</div>
+                  <input
+                    className="w-full rounded-2xl border border-slate-300 px-4 py-2 text-sm outline-none transition focus:border-slate-950"
+                    value={testMember.name}
+                    onChange={(event) => setTestMember((current) => ({ ...current, name: event.target.value }))}
+                    placeholder="Name"
+                  />
+                  <input
+                    className="w-full rounded-2xl border border-slate-300 px-4 py-2 text-sm outline-none transition focus:border-slate-950"
+                    type="email"
+                    value={testMember.email}
+                    onChange={(event) => setTestMember((current) => ({ ...current, email: event.target.value }))}
+                    placeholder="test-member@stanford.edu"
+                  />
+                  <Button type="submit" variant="secondary">Add Test Member</Button>
+                </form>
               ) : null}
             </article>
           </div>

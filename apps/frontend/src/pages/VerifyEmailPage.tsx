@@ -11,7 +11,20 @@ export function VerifyEmailPage() {
     let active = true;
 
     async function completeMagicLink() {
-      const { error } = await supabase.auth.exchangeCodeForSession(window.location.href);
+      const url = new URL(window.location.href);
+      const code = url.searchParams.get("code");
+      const hash = new URLSearchParams(url.hash.replace(/^#/, ""));
+      const accessToken = hash.get("access_token");
+      const refreshToken = hash.get("refresh_token");
+
+      const { error } = code
+        ? await supabase.auth.exchangeCodeForSession(window.location.href)
+        : accessToken && refreshToken
+          ? await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            })
+          : await supabase.auth.getSession();
 
       if (!active) {
         return;

@@ -13,6 +13,7 @@ const baseEnvSchema = z.object({
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   SENDGRID_API_KEY: z.string().optional(),
+  ADMIN_EMAILS: z.string().optional(),
   JWT_SECRET: z.string().min(1),
   ENCRYPTION_KEY: z.string().min(16),
   APP_URL: z.string().url(),
@@ -30,8 +31,19 @@ if (parsedEnv.NODE_ENV === "production") {
 }
 
 export const env = parsedEnv;
+export const adminEmails = new Set(
+  (env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean),
+);
+
+function hasRealSecret(value: string | undefined) {
+  return Boolean(value && !value.includes("placeholder") && !value.includes("REPLACE_ME"));
+}
+
 export const featureFlags = {
-  stripeEnabled: Boolean(env.STRIPE_SECRET_KEY),
-  stripeWebhooksEnabled: Boolean(env.STRIPE_SECRET_KEY && env.STRIPE_WEBHOOK_SECRET),
-  emailEnabled: Boolean(env.SENDGRID_API_KEY),
+  stripeEnabled: hasRealSecret(env.STRIPE_SECRET_KEY),
+  stripeWebhooksEnabled: hasRealSecret(env.STRIPE_SECRET_KEY) && hasRealSecret(env.STRIPE_WEBHOOK_SECRET),
+  emailEnabled: hasRealSecret(env.SENDGRID_API_KEY),
 };

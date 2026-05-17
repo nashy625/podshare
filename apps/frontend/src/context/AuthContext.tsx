@@ -18,6 +18,7 @@ type CurrentUser = {
   major?: string | null;
   year?: number | null;
   isVerified: boolean;
+  isAdmin?: boolean;
 };
 
 type AuthContextValue = {

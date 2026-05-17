@@ -4,6 +4,7 @@ import { env } from "../config.js";
 import { prisma } from "../lib/prisma.js";
 import { supabaseAdmin } from "../lib/supabase.js";
 import { syncAuthenticatedUser } from "../lib/users.js";
+import { isAdminEmail } from "../lib/admin.js";
 import { requireAuth, type AuthenticatedRequest } from "../middleware/auth.js";
 
 const magicLinkSchema = z.object({
@@ -25,12 +26,17 @@ authRouter.post("/magic-link", async (req, res, next) => {
   try {
     const { email } = magicLinkSchema.parse(req.body);
 
-    await supabaseAdmin.auth.signInWithOtp({
+    const { error } = await supabaseAdmin.auth.signInWithOtp({
       email,
       options: {
         emailRedirectTo: `${env.APP_URL}/login/verify`,
       },
     });
+
+    if (error) {
+      res.status(error.status ?? 502).json({ error: error.message });
+      return;
+    }
 
     res.status(202).json({ message: "Magic link sent if the email is eligible." });
   } catch (error) {
@@ -56,7 +62,10 @@ authRouter.post("/verify", async (req, res, next) => {
     });
 
     res.json({
-      user,
+      user: {
+        ...user,
+        isAdmin: isAdminEmail(user.email),
+      },
     });
   } catch (error) {
     next(error);
@@ -73,7 +82,14 @@ authRouter.get("/me", requireAuth, async (req: AuthenticatedRequest, res, next) 
       },
     });
 
-    res.json({ user });
+    res.json({
+      user: user
+        ? {
+            ...user,
+            isAdmin: isAdminEmail(user.email),
+          }
+        : null,
+    });
   } catch (error) {
     next(error);
   }

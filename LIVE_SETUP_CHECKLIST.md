@@ -5,7 +5,7 @@ Use this checklist to move PodShare from local scaffold to live staging.
 ## 1. Fill Backend Env
 
 Edit:
-- [apps/backend/.env](/Users/nashy/PodShare/apps/backend/.env)
+- `apps/backend/.env`
 
 Required real values:
 - `DATABASE_URL`
@@ -16,6 +16,7 @@ Required real values:
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `SENDGRID_API_KEY`
+- `ADMIN_EMAILS`
 - `JWT_SECRET`
 - `ENCRYPTION_KEY`
 - `APP_URL`
@@ -23,7 +24,7 @@ Required real values:
 ## 2. Fill Frontend Env
 
 Edit:
-- [apps/frontend/.env](/Users/nashy/PodShare/apps/frontend/.env)
+- `apps/frontend/.env`
 
 Required real values:
 - `VITE_API_URL`
@@ -36,10 +37,11 @@ Required real values:
 - create project
 - enable email magic links
 - add redirect URL:
+  - `http://127.0.0.1:5173/login/verify`
   - `http://localhost:5173/login/verify`
   - your staging domain later
 - copy project URL and keys into env files
-- get Postgres connection string for `DATABASE_URL`
+- get the Session Pooler Postgres connection string for `DATABASE_URL`
 
 ## 4. Stripe
 
@@ -55,12 +57,24 @@ Required real values:
 
 Once `DATABASE_URL` is real:
 - `npm run prisma:generate`
-- `npm run prisma:migrate --workspace backend`
+- `cd apps/backend && npx prisma migrate deploy`
+
+If the Supabase public schema already contains the PodShare tables but `_prisma_migrations` is missing, baseline the existing schema first:
+
+```bash
+cd apps/backend
+npx prisma migrate resolve --applied 20260511142513_initial_podshare_schema
+npx prisma migrate resolve --applied 20260511153030_add_pod_purchase_workflow
+npx prisma migrate resolve --applied 20260511193000_add_notifications
+npx prisma migrate resolve --applied 20260511194500_enable_rls_public_tables
+npx prisma migrate resolve --applied 20260511195000_add_foreign_key_indexes
+npx prisma migrate deploy
+```
 
 ## 6. Run Locally
 
 - `npm run dev:backend`
-- `npm run dev:frontend`
+- `npm run dev --workspace frontend -- --host 127.0.0.1`
 
 ## 7. Test Critical Flows
 

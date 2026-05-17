@@ -28,12 +28,28 @@ cp apps/frontend/.env.example apps/frontend/.env
 
 Then replace placeholder values with real test credentials where available.
 
+For local Supabase testing, use:
+
+- `APP_URL=http://127.0.0.1:5173`
+- Supabase auth redirect URLs:
+  - `http://127.0.0.1:5173/login/verify`
+  - `http://localhost:5173/login/verify`
+- Supabase Session Pooler URI for `DATABASE_URL`
+
+Apply remote database migrations from the backend workspace:
+
+```bash
+cd apps/backend
+npx prisma migrate deploy
+```
+
 ## 3. Auth Flow Test
 
 Goal:
 - confirm Stanford-only magic-link login works
 
 Checklist:
+- non-Stanford email is rejected with `Only Stanford emails are allowed.`
 - request magic link from `/login`
 - email sends successfully
 - verify redirect lands on `/login/verify`

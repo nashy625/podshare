@@ -27,6 +27,7 @@ model User {
   sentPodInvites         PodInvite[]            @relation("PodInviteSender")
   receivedPodInvites     PodInvite[]            @relation("PodInviteRecipient")
   paymentMethods         PaymentMethodReference[]
+  notifications          Notification[]
 }
 
 model Subscription {
@@ -41,6 +42,8 @@ model Subscription {
   user                       User                  @relation(fields: [userId], references: [id])
   pods                       Pod[]
   linkedTrackedSubscriptions TrackedSubscription[]
+
+  @@index([userId])
 }
 
 model Pod {
@@ -52,6 +55,11 @@ model Pod {
   costPerMember         Decimal                @db.Decimal(10, 2)
   visibility            PodVisibility          @default(PRIVATE)
   status                PodStatus              @default(OPEN)
+  purchaseStage         PodPurchaseStage       @default(INVITING)
+  subscriptionTier      String?
+  platformFeePercent    Decimal                @default(5.00) @db.Decimal(5, 2)
+  serviceAccountEmail   String?
+  serviceAccountLogin   String?
   credentials           String?
   createdAt             DateTime               @default(now())
   subscription          Subscription           @relation(fields: [subscriptionId], references: [id])
@@ -60,6 +68,9 @@ model Pod {
   payments              Payment[]
   invites               PodInvite[]
   platformBillingRecords PlatformBillingRecord[]
+
+  @@index([subscriptionId])
+  @@index([ownerId])
 }
 
 model PodMember {
@@ -73,6 +84,7 @@ model PodMember {
   user     User         @relation(fields: [userId], references: [id])
 
   @@unique([podId, userId])
+  @@index([userId])
 }
 
 model Payment {
@@ -88,6 +100,9 @@ model Payment {
   createdAt       DateTime      @default(now())
   pod             Pod           @relation(fields: [podId], references: [id])
   user            User          @relation(fields: [userId], references: [id])
+
+  @@index([podId])
+  @@index([userId])
 }
 
 model Friendship {
@@ -101,6 +116,7 @@ model Friendship {
   addressee   User             @relation("FriendAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
 
   @@unique([requesterId, addresseeId])
+  @@index([addresseeId])
 }
 
 model PodInvite {
@@ -117,6 +133,8 @@ model PodInvite {
   recipient    User         @relation("PodInviteRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
 
   @@unique([podId, recipientId])
+  @@index([recipientId])
+  @@index([senderId])
 }
 
 model TrackedSubscription {
@@ -137,6 +155,9 @@ model TrackedSubscription {
   updatedAt          DateTime       @updatedAt
   user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   linkedSubscription Subscription?  @relation(fields: [linkedSubscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([linkedSubscriptionId])
 }
 
 model PaymentMethodReference {
@@ -152,6 +173,8 @@ model PaymentMethodReference {
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
   user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model PlatformBillingRecord {
@@ -166,6 +189,22 @@ model PlatformBillingRecord {
   paidAt           DateTime?
   createdAt        DateTime              @default(now())
   pod              Pod                   @relation(fields: [podId], references: [id], onDelete: Cascade)
+
+  @@index([podId])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String
+  href      String?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
 }
 
 enum PodStatus {
@@ -173,6 +212,14 @@ enum PodStatus {
   FULL
   ACTIVE
   CANCELLED
+}
+
+enum PodPurchaseStage {
+  INVITING
+  COLLECTING
+  READY_TO_PURCHASE
+  PURCHASED
+  PAUSED
 }
 
 enum MemberStatus {
@@ -220,4 +267,13 @@ enum PlatformBillingStatus {
   PROCESSING
   COMPLETED
   FAILED
+}
+
+enum NotificationType {
+  INVITE_RECEIVED
+  PAYMENT_FAILED
+  PAYMENTS_COLLECTED
+  SUBSCRIPTION_PURCHASED
+  MEMBER_LEFT
+  PRICE_CHANGED
 }

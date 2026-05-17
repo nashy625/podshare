@@ -13,6 +13,8 @@ export function Navbar() {
           <Link to="/subscriptions">Subscriptions</Link>
           <Link to="/friends">Friends</Link>
           <Link to="/invites">Invites</Link>
+          <Link to="/notifications">Notifications</Link>
+          <Link to="/operations">Operations</Link>
           <Link to="/profile">Profile</Link>
         </nav>
       </div>

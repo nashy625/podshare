@@ -2,6 +2,7 @@ import { api } from "./api";
 
 export type PodVisibility = "PUBLIC" | "PRIVATE";
 export type PodStatus = "OPEN" | "FULL" | "ACTIVE" | "CANCELLED";
+export type PodPurchaseStage = "INVITING" | "COLLECTING" | "READY_TO_PURCHASE" | "PURCHASED" | "PAUSED";
 
 export type PodFeedItem = {
   id: string;
@@ -10,6 +11,11 @@ export type PodFeedItem = {
   costPerMember: number | string;
   visibility: PodVisibility;
   status: PodStatus;
+  purchaseStage: PodPurchaseStage;
+  subscriptionTier?: string | null;
+  platformFeePercent: number | string;
+  serviceAccountEmail?: string | null;
+  serviceAccountLogin?: string | null;
   createdAt: string;
   subscription: {
     id: string;
@@ -37,6 +43,11 @@ export type PodDetails = {
   costPerMember: number | string;
   visibility: PodVisibility;
   status: PodStatus;
+  purchaseStage: PodPurchaseStage;
+  subscriptionTier?: string | null;
+  platformFeePercent: number | string;
+  serviceAccountEmail?: string | null;
+  serviceAccountLogin?: string | null;
   credentials?: string | null;
   createdAt: string;
   subscription: {
@@ -72,6 +83,18 @@ export type PodDetails = {
   }>;
 };
 
+export type PodOperationsItem = PodDetails & {
+  payments?: Array<{
+    id: string;
+    userId: string;
+    amount: number | string;
+    status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "REFUNDED";
+    month: number;
+    year: number;
+    paidAt?: string | null;
+  }>;
+};
+
 export type PodInviteRecord = {
   id: string;
   status: "PENDING" | "ACCEPTED" | "DECLINED" | "REVOKED";
@@ -83,6 +106,7 @@ export type PodInviteRecord = {
     name: string;
     visibility: PodVisibility;
     costPerMember: number | string;
+    purchaseStage: PodPurchaseStage;
     subscription: {
       id: string;
       name: string;
@@ -108,8 +132,10 @@ export type PodInviteRecord = {
 export type CreatePodInput = {
   name: string;
   subscriptionId: string;
-  maxMembers: number;
-  costPerMember: number;
+  subscriptionTier: "INDIVIDUAL" | "STANDARD" | "FAMILY" | "TEAM";
+  platformFeePercent?: number;
+  serviceAccountEmail?: string;
+  serviceAccountLogin?: string;
   visibility: PodVisibility;
   credentials?: string;
 };
@@ -146,6 +172,31 @@ export async function inviteToPod(id: string, recipientEmail: string, message?: 
 export async function createPod(input: CreatePodInput) {
   const { data } = await api.post<{ pod: PodFeedItem }>("/api/pods", input);
   return data.pod;
+}
+
+export async function startPodSharing(id: string) {
+  const { data } = await api.post<{ pod: PodDetails }>(`/api/pods/${id}/start-sharing`);
+  return data.pod;
+}
+
+export async function markPodPurchased(id: string) {
+  const { data } = await api.post<{ pod: PodDetails }>(`/api/pods/${id}/mark-purchased`);
+  return data.pod;
+}
+
+export async function addDevTestMember(id: string, input: { email: string; name: string }) {
+  const { data } = await api.post<{ user: unknown; membership: unknown }>(`/api/pods/${id}/dev/test-member`, input);
+  return data;
+}
+
+export async function fetchReadyToPurchasePods() {
+  const { data } = await api.get<{ pods: PodOperationsItem[] }>("/api/pods/operations/ready-to-purchase");
+  return data.pods;
+}
+
+export async function fetchPurchasedPods() {
+  const { data } = await api.get<{ pods: PodOperationsItem[] }>("/api/pods/operations/purchased");
+  return data.pods;
 }
 
 export async function fetchIncomingPodInvites() {

@@ -1,0 +1,13 @@
+CREATE INDEX IF NOT EXISTS "Subscription_userId_idx" ON public."Subscription"("userId");
+CREATE INDEX IF NOT EXISTS "Pod_subscriptionId_idx" ON public."Pod"("subscriptionId");
+CREATE INDEX IF NOT EXISTS "Pod_ownerId_idx" ON public."Pod"("ownerId");
+CREATE INDEX IF NOT EXISTS "PodMember_userId_idx" ON public."PodMember"("userId");
+CREATE INDEX IF NOT EXISTS "Payment_podId_idx" ON public."Payment"("podId");
+CREATE INDEX IF NOT EXISTS "Payment_userId_idx" ON public."Payment"("userId");
+CREATE INDEX IF NOT EXISTS "Friendship_addresseeId_idx" ON public."Friendship"("addresseeId");
+CREATE INDEX IF NOT EXISTS "PodInvite_recipientId_idx" ON public."PodInvite"("recipientId");
+CREATE INDEX IF NOT EXISTS "PodInvite_senderId_idx" ON public."PodInvite"("senderId");
+CREATE INDEX IF NOT EXISTS "TrackedSubscription_userId_idx" ON public."TrackedSubscription"("userId");
+CREATE INDEX IF NOT EXISTS "TrackedSubscription_linkedSubscriptionId_idx" ON public."TrackedSubscription"("linkedSubscriptionId");
+CREATE INDEX IF NOT EXISTS "PaymentMethodReference_userId_idx" ON public."PaymentMethodReference"("userId");
+CREATE INDEX IF NOT EXISTS "PlatformBillingRecord_podId_idx" ON public."PlatformBillingRecord"("podId");

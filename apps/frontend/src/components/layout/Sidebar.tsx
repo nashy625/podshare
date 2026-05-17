@@ -6,6 +6,8 @@ const links = [
   { to: "/subscriptions/new", label: "Add Subscription" },
   { to: "/friends", label: "Friends" },
   { to: "/invites", label: "Invites" },
+  { to: "/notifications", label: "Notifications" },
+  { to: "/operations", label: "Operations" },
   { to: "/pods", label: "Browse Pods" },
   { to: "/pods/new", label: "Create Pod" },
   { to: "/settings", label: "Settings" },

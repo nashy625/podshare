@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import { Button } from "../ui/Button";
@@ -18,7 +18,11 @@ type StripePaymentMethodFormProps = {
   onMessage: (message: string) => void;
 };
 
-function StripePaymentMethodInner({ onSaved, onMessage }: StripePaymentMethodFormProps) {
+type StripePaymentMethodInnerProps = StripePaymentMethodFormProps & {
+  customerId: string;
+};
+
+function StripePaymentMethodInner({ customerId, onSaved, onMessage }: StripePaymentMethodInnerProps) {
   const stripe = useStripe();
   const elements = useElements();
   const [submitting, setSubmitting] = useState(false);
@@ -34,14 +38,8 @@ function StripePaymentMethodInner({ onSaved, onMessage }: StripePaymentMethodFor
     onMessage("");
 
     try {
-      const { data } = await api.post<SetupIntentResponse>("/api/payments/setup-intent");
-      if (!data.clientSecret) {
-        throw new Error("Stripe did not return a client secret.");
-      }
-
       const { error, setupIntent } = await stripe.confirmSetup({
         elements,
-        clientSecret: data.clientSecret,
         redirect: "if_required",
       });
 
@@ -56,7 +54,7 @@ function StripePaymentMethodInner({ onSaved, onMessage }: StripePaymentMethodFor
 
       await savePaymentMethod({
         stripePaymentMethodId: paymentMethodId,
-        stripeCustomerId: data.customerId,
+        stripeCustomerId: customerId,
         isDefault: true,
       });
 
@@ -82,22 +80,46 @@ function StripePaymentMethodInner({ onSaved, onMessage }: StripePaymentMethodFor
 }
 
 export function StripePaymentMethodForm(props: StripePaymentMethodFormProps) {
-  const options = useMemo(
-    () => ({
-      mode: "setup" as const,
-      currency: "usd",
-      paymentMethodCreation: "manual" as const,
-    }),
-    [],
-  );
+  const [setupIntent, setSetupIntent] = useState<SetupIntentResponse | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
+  const options = useMemo(() => setupIntent?.clientSecret ? { clientSecret: setupIntent.clientSecret } : undefined, [setupIntent]);
+
+  useEffect(() => {
+    let active = true;
+
+    api
+      .post<SetupIntentResponse>("/api/payments/setup-intent")
+      .then(({ data }) => {
+        if (active) {
+          setSetupIntent(data);
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          setErrorMessage(error instanceof Error ? error.message : "Unable to initialize Stripe setup.");
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   if (!stripePromise) {
     return null;
   }
 
+  if (errorMessage) {
+    return <div className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-800">{errorMessage}</div>;
+  }
+
+  if (!options) {
+    return <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">Loading Stripe form...</div>;
+  }
+
   return (
     <Elements stripe={stripePromise} options={options}>
-      <StripePaymentMethodInner {...props} />
+      <StripePaymentMethodInner {...props} customerId={setupIntent!.customerId} />
     </Elements>
   );
 }

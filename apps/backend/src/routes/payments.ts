@@ -2,7 +2,12 @@ import { type Response, Router } from "express";
 import { Prisma, type Payment } from "@prisma/client";
 import { z } from "zod";
 import { featureFlags } from "../config.js";
-import { collectPendingPaymentsForPod, currentBillingCycle, ensurePodCyclePayments } from "../lib/billing.js";
+import {
+  collectPendingPaymentsForPod,
+  currentBillingCycle,
+  ensurePodCyclePayments,
+  refreshPodPurchaseStage,
+} from "../lib/billing.js";
 import { prisma } from "../lib/prisma.js";
 import { stripe } from "../lib/stripe.js";
 import { requireAuth, type AuthenticatedRequest } from "../middleware/auth.js";
@@ -30,6 +35,13 @@ function requireStripe(res: Response) {
     error: "Stripe is not configured for this environment.",
   });
   return false;
+}
+
+function splitAmount(monthlyCost: Prisma.Decimal | number | string, activeMemberCount: number, platformFeePercent: Prisma.Decimal | number | string) {
+  const memberCount = Math.max(activeMemberCount, 1);
+  const base = Number(monthlyCost);
+  const feeMultiplier = 1 + Number(platformFeePercent) / 100;
+  return new Prisma.Decimal((base * feeMultiplier / memberCount).toFixed(2));
 }
 
 async function getOrCreateStripeCustomer(userId: string, email: string, name: string) {
@@ -217,6 +229,12 @@ paymentsRouter.post("/:podId/pay", async (req: AuthenticatedRequest, res, next) 
     });
     const pod = await prisma.pod.findUniqueOrThrow({
       where: { id: podId },
+      include: {
+        subscription: true,
+        members: {
+          where: { status: "ACTIVE" },
+        },
+      },
     });
     const now = new Date();
     const month = now.getMonth() + 1;
@@ -243,7 +261,7 @@ paymentsRouter.post("/:podId/pay", async (req: AuthenticatedRequest, res, next) 
           data: {
             podId,
             userId: user.id,
-            amount: new Prisma.Decimal(pod.costPerMember),
+            amount: splitAmount(pod.subscription.monthlyCost, pod.members.length, pod.platformFeePercent),
             status: "COMPLETED",
             stripePaymentId: "scaffold_manual_payment",
             month,
@@ -251,6 +269,8 @@ paymentsRouter.post("/:podId/pay", async (req: AuthenticatedRequest, res, next) 
             paidAt: now,
           },
         });
+
+    await refreshPodPurchaseStage(podId, { month, year });
 
     res.status(202).json({
       message: "Payment recorded.",
@@ -356,6 +376,9 @@ paymentsRouter.post("/automation/run", async (req: AuthenticatedRequest, res, ne
     for (const pod of pods) {
       await ensurePodCyclePayments(pod.id, cycle);
       const result = await collectPendingPaymentsForPod(pod.id, cycle, dryRun);
+      if (!dryRun) {
+        await refreshPodPurchaseStage(pod.id, cycle);
+      }
       results.push(result);
     }
 
@@ -378,6 +401,7 @@ paymentsRouter.get("/pods/:podId/summary", async (req: AuthenticatedRequest, res
     const pod = await prisma.pod.findUniqueOrThrow({
       where: { id: podId },
       include: {
+        subscription: true,
         owner: true,
         members: {
           include: {
@@ -410,6 +434,7 @@ paymentsRouter.get("/pods/:podId/summary", async (req: AuthenticatedRequest, res
 
     const activeMembers = pod.members.filter((member) => member.status === "ACTIVE");
     const pendingMembers = pod.members.filter((member) => member.status === "PENDING");
+    const currentSplitAmount = splitAmount(pod.subscription.monthlyCost, activeMembers.length, pod.platformFeePercent);
     const memberBilling = activeMembers.map((member) => {
       const payment = payments.find((entry) => entry.userId === member.userId);
 
@@ -418,7 +443,7 @@ paymentsRouter.get("/pods/:podId/summary", async (req: AuthenticatedRequest, res
         userId: member.user.id,
         name: member.user.name,
         email: member.user.email,
-        amountDue: Number(pod.costPerMember),
+        amountDue: Number(payment?.amount ?? currentSplitAmount),
         paymentStatus: payment?.status ?? "PENDING",
         paymentId: payment?.id ?? null,
         paidAt: payment?.paidAt ?? null,
@@ -428,18 +453,24 @@ paymentsRouter.get("/pods/:podId/summary", async (req: AuthenticatedRequest, res
     const totalCollected = payments
       .filter((payment) => payment.status === "COMPLETED")
       .reduce((sum, payment) => sum + Number(payment.amount), 0);
+    const failedPayments = memberBilling.filter((entry) => entry.paymentStatus === "FAILED");
 
     res.json({
       podId: pod.id,
       month,
       year,
-      splitAmount: Number(pod.costPerMember),
+      splitAmount: Number(currentSplitAmount),
       totalCollected,
       activeMemberCount: activeMembers.length,
       pendingMemberCount: pendingMembers.length,
       memberBilling,
       currentUserPayment:
         memberBilling.find((entry) => entry.userId === user.id) ?? null,
+      failedPayments,
+      readyToPurchase:
+        activeMembers.length > 0 &&
+        memberBilling.length >= activeMembers.length &&
+        memberBilling.every((entry) => entry.paymentStatus === "COMPLETED"),
       owner: {
         id: pod.owner.id,
         name: pod.owner.name,
