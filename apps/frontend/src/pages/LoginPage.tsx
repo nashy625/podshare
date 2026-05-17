@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { useAuth } from "../context/AuthContext";
@@ -8,11 +8,35 @@ export function LoginPage() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "submitting" | "sent" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
-  const { session, sendMagicLink } = useAuth();
-  const navigate = useNavigate();
+  const { session, user, sendMagicLink, signOut } = useAuth();
 
   if (session) {
-    navigate("/dashboard", { replace: true });
+    return (
+      <section className="mx-auto max-w-xl space-y-6">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight text-slate-950">You are already signed in</h1>
+          <p className="mt-2 text-slate-600">
+            {user?.email
+              ? `Current session: ${user.email}`
+              : "A saved browser session is active for this device."}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-3 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <Link to="/dashboard">
+            <Button>Open Dashboard</Button>
+          </Link>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              signOut().catch(() => undefined);
+            }}
+          >
+            Sign Out
+          </Button>
+        </div>
+      </section>
+    );
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -21,7 +45,7 @@ export function LoginPage() {
     setErrorMessage("");
 
     try {
-      await sendMagicLink(email);
+      await sendMagicLink(email.trim().toLowerCase());
       setStatus("sent");
     } catch (error) {
       setStatus("error");
