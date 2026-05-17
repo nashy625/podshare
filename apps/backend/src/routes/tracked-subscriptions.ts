@@ -71,18 +71,26 @@ trackedSubscriptionsRouter.get("/summary", async (req: AuthenticatedRequest, res
 trackedSubscriptionsRouter.post("/", async (req: AuthenticatedRequest, res, next) => {
   try {
     const input = trackedSubscriptionSchema.parse(req.body);
+    const { linkedSubscriptionId, ...subscriptionInput } = input;
     const user = await prisma.user.findUniqueOrThrow({
       where: { email: req.user!.email },
     });
 
     const subscription = await prisma.trackedSubscription.create({
       data: {
-        ...input,
+        ...subscriptionInput,
         monthlyCost: new Prisma.Decimal(input.monthlyCost),
         estimatedRetailCost: input.estimatedRetailCost !== undefined
           ? new Prisma.Decimal(input.estimatedRetailCost)
           : undefined,
-        userId: user.id,
+        user: {
+          connect: { id: user.id },
+        },
+        linkedSubscription: linkedSubscriptionId
+          ? {
+              connect: { id: linkedSubscriptionId },
+            }
+          : undefined,
       },
     });
 

@@ -38,7 +38,9 @@ subscriptionsRouter.post("/", async (req: AuthenticatedRequest, res, next) => {
       data: {
         ...input,
         monthlyCost: input.monthlyCost,
-        userId: user.id,
+        user: {
+          connect: { id: user.id },
+        },
       },
     });
 
