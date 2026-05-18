@@ -144,6 +144,13 @@ paymentsRouter.post("/setup", async (req: AuthenticatedRequest, res, next) => {
     const user = await prisma.user.findUniqueOrThrow({
       where: { email: req.user!.email },
     });
+    const stripeMethod = stripe
+      ? await stripe.paymentMethods.retrieve(input.stripePaymentMethodId)
+      : null;
+    const stripeCard = stripeMethod?.type === "card" ? stripeMethod.card : null;
+    const stripeCustomerId =
+      input.stripeCustomerId ??
+      (typeof stripeMethod?.customer === "string" ? stripeMethod.customer : undefined);
 
     if (input.isDefault) {
       await prisma.paymentMethodReference.updateMany({
@@ -157,21 +164,21 @@ paymentsRouter.post("/setup", async (req: AuthenticatedRequest, res, next) => {
         stripePaymentMethodId: input.stripePaymentMethodId,
       },
       update: {
-        stripeCustomerId: input.stripeCustomerId,
-        brand: input.brand,
-        last4: input.last4,
-        expMonth: input.expMonth,
-        expYear: input.expYear,
+        stripeCustomerId,
+        brand: stripeCard?.brand ?? input.brand,
+        last4: stripeCard?.last4 ?? input.last4,
+        expMonth: stripeCard?.exp_month ?? input.expMonth,
+        expYear: stripeCard?.exp_year ?? input.expYear,
         isDefault: input.isDefault,
       },
       create: {
         userId: user.id,
-        stripeCustomerId: input.stripeCustomerId,
+        stripeCustomerId,
         stripePaymentMethodId: input.stripePaymentMethodId,
-        brand: input.brand,
-        last4: input.last4,
-        expMonth: input.expMonth,
-        expYear: input.expYear,
+        brand: stripeCard?.brand ?? input.brand,
+        last4: stripeCard?.last4 ?? input.last4,
+        expMonth: stripeCard?.exp_month ?? input.expMonth,
+        expYear: stripeCard?.exp_year ?? input.expYear,
         isDefault: input.isDefault,
       },
     });
